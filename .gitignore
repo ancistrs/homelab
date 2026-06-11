@@ -1,0 +1,33 @@
+# Secrets
+.env
+scripts/kb-sync/google_service_account.json
+
+# Service data volumes (Docker volume mount points, not config)
+backups/
+grafana/
+n8n/
+nocodb/
+paperclip/
+paperless/data/
+paperless/media/
+paperless/export/
+paperless/consume/
+postgres/
+uptimekuma/
+
+# Tailscale sidecar state and config
+tailscale/
+
+# Logs and rotated log archives
+*.log
+*.log.[0-9]*
+
+# Python
+__pycache__/
+*.pyc
+
+# Runtime state
+scripts/logrotate/logrotate.state
+
+# macOS
+.DS_Store

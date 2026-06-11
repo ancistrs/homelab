@@ -1,0 +1,14 @@
+scrub-anchor "com.apple/*"
+
+# Allow internal loopback
+set skip on lo0
+
+# Allow inbound/outbound on Tailscale (device IP)
+pass in quick to 100.88.139.60
+
+# Allow DNS from local LAN
+pass in quick proto { udp tcp } from 192.168.178.0/24 to any port 53 keep state
+
+# Default block rule
+block in all
+pass out all keep state

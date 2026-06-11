@@ -1,0 +1,4 @@
+fastapi>=0.135.0
+python-multipart>=0.0.20
+uvicorn>=0.41.0
+faster-whisper>=1.1.0

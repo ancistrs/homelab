@@ -1,0 +1,419 @@
+services:
+
+#-- INFRASTRUCTURE
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    security_opt:
+      - no-new-privileges:true
+    networks: [web]
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - DOZZLE_NO_ANALYTICS=true
+      - DOZZLE_HOSTNAME=homelab
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [internal]
+
+  dozzle-ts:
+    image: tailscale/tailscale:latest
+    container_name: dozzle-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=dozzle
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/dozzle/state:/var/lib/tailscale
+      - ./tailscale/dozzle/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+  glances-ts:
+    image: tailscale/tailscale:latest
+    container_name: glances-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=glances
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/glances/state:/var/lib/tailscale
+      - ./tailscale/glances/serve.json:/config/serve.json:ro
+
+  postgres:
+    image: pgvector/pgvector:pg18
+    container_name: postgres
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./postgres:/var/lib/postgresql
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres-ts:
+    image: tailscale/tailscale:latest
+    container_name: postgres-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=postgres
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/postgres/state:/var/lib/tailscale
+      - ./tailscale/postgres/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    security_opt:
+      - no-new-privileges:true
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  uptimekuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptimekuma
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: Europe/Berlin
+      UPTIME_KUMA_PORT: 3001
+    volumes:
+      - ./uptimekuma:/app/data
+    networks: [internal]
+
+  uptimekuma-ts:
+    image: tailscale/tailscale:latest
+    container_name: uptimekuma-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=uptimekuma
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/uptimekuma/state:/var/lib/tailscale
+      - ./tailscale/uptimekuma/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+#-- LOGS
+  backup-homelab:
+    image: busybox:latest
+    container_name: backup-homelab
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: ["sh","-c","exec tail -n200 -F /logs/backup-homelab.log"]
+    volumes:
+      - /Users/fink/PAOS/code/homelab/scripts/backup-homelab:/logs:ro
+
+  backup-personal:
+    image: busybox:latest
+    container_name: backup-personal
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: ["sh","-c","exec tail -n200 -F /logs/backup-personal.log"]
+    volumes:
+      - /Users/fink/PAOS/code/homelab/scripts/backup-personal:/logs:ro
+
+  kb-query-server:
+    image: busybox:latest
+    container_name: kb-query-server
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: ["sh","-c","exec tail -n200 -F /logs/kb-query-server.log"]
+    volumes:
+      - /Users/fink/PAOS/code/homelab/scripts/kb-sync:/logs:ro
+
+  kb-sync:
+    image: busybox:latest
+    container_name: kb-sync
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: ["sh","-c","exec tail -n100 -F /logs/kb-sync.log"]
+    volumes:
+      - /Users/fink/PAOS/code/homelab/scripts/kb-sync:/logs:ro
+
+  whisper:
+    image: busybox:latest
+    container_name: whisper
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    command: ["sh","-c","exec tail -n100 -F /logs/whisper.log"]
+    volumes:
+      - /Users/fink/PAOS/code/homelab/whisper:/logs:ro
+
+#-- APPS
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SERVER_ROOT_URL=https://grafana.taildc3234.ts.net
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SECURITY_COOKIE_SECURE=true
+    volumes:
+      - ./grafana:/var/lib/grafana
+    networks: [internal]
+
+  grafana-ts:
+    image: tailscale/tailscale:latest
+    container_name: grafana-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=grafana
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/grafana/state:/var/lib/tailscale
+      - ./tailscale/grafana/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - N8N_PROTOCOL=https
+      - N8N_HOST=n8n.taildc3234.ts.net
+      - N8N_EDITOR_BASE_URL=https://n8n.taildc3234.ts.net
+      - WEBHOOK_URL=https://n8n.ancistrs.net
+      - N8N_PROXY_HOPS=2
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=all
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=all
+      - N8N_LOG_LEVEL=warn
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+      - GENERIC_TIMEZONE=Europe/Berlin
+      - NODE_ENV=production
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+      - EXECUTIONS_DATA_PRUNE=true
+      - EXECUTIONS_DATA_MAX_AGE=168
+      - EXECUTIONS_DATA_PRUNE_MAX_COUNT=2000
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - N8N_SECURE_COOKIE=true
+      - N8N_SAMESITE_COOKIE=lax
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=true
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=n8n_user
+      - DB_POSTGRESDB_PASSWORD=${N8N_DB_PASS}
+      - DB_POSTGRESDB_PORT=5432
+      - EXECUTIONS_TIMEOUT=3600
+      - EXECUTIONS_TIMEOUT_MAX=7200
+    volumes:
+      - ./n8n:/home/node/.n8n
+    networks: [web, internal]
+
+  n8n-ts:
+    image: tailscale/tailscale:latest
+    container_name: n8n-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=n8n
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/n8n/state:/var/lib/tailscale
+      - ./tailscale/n8n/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+  nocodb:
+    image: nocodb/nocodb:latest
+    container_name: nocodb
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      NC_DB: "pg://postgres:5432?u=nocodb_user&p=${NOCODB_DB_PASS}&d=nocodb"
+      NC_AUTH_JWT_SECRET: ${NOCODB_JWT_SECRET}
+      NC_PUBLIC_URL: https://nocodb.taildc3234.ts.net
+      TZ: Europe/Berlin
+      NC_DISABLE_TELE: "true"
+      NC_ALLOW_LOCAL_HOOKS: "true"
+    volumes:
+      - ./nocodb:/usr/app/data
+    networks: [internal]
+
+  nocodb-ts:
+    image: tailscale/tailscale:latest
+    container_name: nocodb-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=nocodb
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/nocodb/state:/var/lib/tailscale
+      - ./tailscale/nocodb/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+  paperclip:
+    image: ghcr.io/paperclipai/paperclip:latest
+    container_name: paperclip
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: Europe/Berlin
+      SERVE_UI: "true"
+      PAPERCLIP_HOME: /paperclip
+      CODEX_HOME: /paperclip/.codex
+      DATABASE_URL: postgres://paperclip_user:${PAPERCLIP_DB_PASS}@postgres:5432/paperclip
+      BETTER_AUTH_SECRET: ${PAPERCLIP_AUTH_SECRET}
+      PAPERCLIP_DEPLOYMENT_MODE: authenticated
+      PAPERCLIP_DEPLOYMENT_EXPOSURE: private
+      PAPERCLIP_PUBLIC_URL: https://paperclip.taildc3234.ts.net
+      PAPERCLIP_AUTH_DISABLE_SIGN_UP: "true"
+    volumes:
+      - ./paperclip:/paperclip
+    networks: [internal]
+
+  paperclip-ts:
+    image: tailscale/tailscale:latest
+    container_name: paperclip-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=paperclip
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/paperclip/state:/var/lib/tailscale
+      - ./tailscale/paperclip/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      TZ: Europe/Berlin
+      PAPERLESS_TIME_ZONE: Europe/Berlin
+      PAPERLESS_REDIS: redis://:${REDIS_PASSWORD}@redis:6379
+      PAPERLESS_DBHOST: postgres
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: paperless_user
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASS}
+      PAPERLESS_URL: https://paperless.taildc3234.ts.net
+      PAPERLESS_ALLOWED_HOSTS: paperless.taildc3234.ts.net,localhost,127.0.0.1,paperless
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: https://paperless.taildc3234.ts.net,http://paperless:8000
+      PAPERLESS_FILENAME_FORMAT: '{{ created_year }}/{{ document_type }}/{{ correspondent }}/{{ title }}'
+      PAPERLESS_FILENAME_FORMAT_REMOVE_NONE: true
+    volumes:
+      - ./paperless/data:/usr/src/paperless/data
+      - ./paperless/media:/usr/src/paperless/media
+      - ./paperless/export:/usr/src/paperless/export
+      - ./paperless/consume:/usr/src/paperless/consume
+    networks: [internal]
+
+  paperless-ts:
+    image: tailscale/tailscale:latest
+    container_name: paperless-ts
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
+      - TS_HOSTNAME=paperless
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - ./tailscale/paperless/state:/var/lib/tailscale
+      - ./tailscale/paperless/serve.json:/config/serve.json:ro
+    networks: [internal]
+
+networks:
+  web:
+    external: true
+  internal:
+    driver: bridge
