@@ -18,7 +18,6 @@ up(){ printf '%s' "$1" | tr '[:lower:]' '[:upper:]'; }
 mkdir -p \
   "$BACKUP_DIR/uptimekuma" \
   "$BACKUP_DIR/n8n" \
-  "$BACKUP_DIR/paperclip" \
   "$BACKUP_DIR/paperless" \
   "$BACKUP_DIR/grafana" \
   "$BACKUP_DIR/nocodb" \
@@ -98,7 +97,6 @@ log "##### META SNAPSHOTS END #####"
 # --- SERVICE DATA ARCHIVES ---
 tar_dir "$STACK_DIR/uptimekuma"          "uptimekuma"
 tar_dir "$STACK_DIR/n8n"                 "n8n"
-tar_dir "$STACK_DIR/paperclip"           "paperclip"
 
 log "##### [EXTRA] PAPERLESS DOCUMENT RENAMER START #####"
 docker exec -i paperless python3 manage.py document_renamer
@@ -161,7 +159,6 @@ log "##### OFFSITE: RESTIC BACKUP START #####"
 restic backup \
   "$STACK_DIR/uptimekuma" \
   "$STACK_DIR/n8n" \
-  "$STACK_DIR/paperclip" \
   "$STACK_DIR/paperless" \
   "$STACK_DIR/grafana" \
   "$STACK_DIR/nocodb" \

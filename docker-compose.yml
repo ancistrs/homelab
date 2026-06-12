@@ -323,47 +323,6 @@ services:
       - ./tailscale/nocodb/serve.json:/config/serve.json:ro
     networks: [internal]
 
-  paperclip:
-    image: ghcr.io/paperclipai/paperclip:latest
-    container_name: paperclip
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      TZ: Europe/Berlin
-      SERVE_UI: "true"
-      PAPERCLIP_HOME: /paperclip
-      CODEX_HOME: /paperclip/.codex
-      DATABASE_URL: postgres://paperclip_user:${PAPERCLIP_DB_PASS}@postgres:5432/paperclip
-      BETTER_AUTH_SECRET: ${PAPERCLIP_AUTH_SECRET}
-      PAPERCLIP_DEPLOYMENT_MODE: authenticated
-      PAPERCLIP_DEPLOYMENT_EXPOSURE: private
-      PAPERCLIP_PUBLIC_URL: https://paperclip.taildc3234.ts.net
-      PAPERCLIP_AUTH_DISABLE_SIGN_UP: "true"
-    volumes:
-      - ./paperclip:/paperclip
-    networks: [internal]
-
-  paperclip-ts:
-    image: tailscale/tailscale:latest
-    container_name: paperclip-ts
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      - TS_AUTHKEY=${TAILSCALE_AUTH_KEY}
-      - TS_HOSTNAME=paperclip
-      - TS_STATE_DIR=/var/lib/tailscale
-      - TS_USERSPACE=true
-      - TS_SERVE_CONFIG=/config/serve.json
-    volumes:
-      - ./tailscale/paperclip/state:/var/lib/tailscale
-      - ./tailscale/paperclip/serve.json:/config/serve.json:ro
-    networks: [internal]
-
   paperless:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
     container_name: paperless

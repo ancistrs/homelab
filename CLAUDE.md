@@ -103,7 +103,6 @@ When adding a new LaunchAgent, add a matching tail container here. Pick the `tai
 - **grafana**: Metrics dashboards (depends on postgres) — `https://grafana.taildc3234.ts.net`
 - **n8n**: Workflow automation (depends on postgres) — editor at `https://n8n.taildc3234.ts.net` (tailnet), public webhooks at `https://n8n.ancistrs.net/webhook/*` and `/mcp/*` (CF Tunnel + CF Access service token)
 - **nocodb**: Airtable-like database UI (depends on postgres) — `https://nocodb.taildc3234.ts.net`
-- **paperclip**: AI agent orchestration platform (depends on postgres; runs its own Drizzle migrations + hourly DB backups into the data dir) — `https://paperclip.taildc3234.ts.net`. Agents run via the image's bundled `codex` CLI, authed with a one-time ChatGPT-subscription `docker exec -it paperclip codex login --device-auth` (token persisted in `./paperclip/.codex` via `CODEX_HOME`). This build's adapters are all local-CLI agents — there is **no** OpenAI-compatible/OpenRouter adapter, so no LLM platform API keys are wired. The **Claude Code** adapter is intentionally avoided: Anthropic's Consumer ToS forbids using a Pro/Max subscription OAuth token in any third-party tool (orchestrating the genuine `claude` binary counts). Self-signup is locked after owner-account creation via `PAPERCLIP_AUTH_DISABLE_SIGN_UP=true` (existing logins unaffected)
 - **paperless**: Document management (depends on postgres + redis) — `https://paperless.taildc3234.ts.net`
 
 ### Database Schema
@@ -126,7 +125,6 @@ To retrofit an existing `admin`-owned database to this convention: `ALTER DATABA
 - `n8n` / `n8n_user`
 - `paperless` / `paperless_user`
 - `nocodb` / `nocodb_user`
-- `paperclip` / `paperclip_user` (Paperclip applies its own Drizzle migrations on first boot against the empty DB)
 - `ancistrs` / `ancistrs_user` (kb-sync: `kb_index` table with pgvector embeddings)
 
 ### Secrets
@@ -135,7 +133,7 @@ All credentials stored in `.env` file. Key variables:
 
 - `POSTGRES_ADMIN_PASSWORD`, `*_DB_PASS` for each service
 - `CLOUDFLARE_TUNNEL_TOKEN`
-- `N8N_ENCRYPTION_KEY`, `NOCODB_JWT_SECRET`, `PAPERCLIP_AUTH_SECRET` (Paperclip `BETTER_AUTH_SECRET`)
+- `N8N_ENCRYPTION_KEY`, `NOCODB_JWT_SECRET`
 - `REDIS_PASSWORD`
 - `TAILSCALE_AUTH_KEY` (reusable auth key, ~90-day expiry — used by all `<service>-ts` sidecars to join the tailnet)
 - `GRAFANA_PASSWORD`
@@ -185,7 +183,7 @@ Scripts and host-service code live under `scripts/` and `whisper/`, backed up as
 **Local archives** (in `backups/`, rotated to keep only most recent):
 
 1. Snapshots meta files (docker-compose.yml, .env, CLAUDE.md, .gitignore, .env.example)
-2. Archives each service data directory with zstd compression (falls back to gzip): `uptimekuma`, `n8n`, `paperclip`, `paperless`, `grafana`, `nocodb`, `whisper`, `tailscale`
+2. Archives each service data directory with zstd compression (falls back to gzip): `uptimekuma`, `n8n`, `paperless`, `grafana`, `nocodb`, `whisper`, `tailscale`
 3. Runs `document_renamer` on paperless before archiving
 4. Archives `scripts/` directory (excluding `*.log`)
 5. Dumps all Postgres databases via `pg_dump -Fc` (auto-discovers databases, no hardcoded list)

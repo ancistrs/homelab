@@ -7,7 +7,6 @@ backups/
 grafana/
 n8n/
 nocodb/
-paperclip/
 paperless/data/
 paperless/media/
 paperless/export/
